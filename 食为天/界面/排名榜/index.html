@@ -1,0 +1,15 @@
+<head></head>
+<body>
+<div id="app"></div>
+<style>
+*{box-sizing:border-box}.endworld-board{width:100%;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#ddd7c7}.panel{border:1px solid rgba(212,175,55,.25);border-radius:10px;background:linear-gradient(135deg,#191d1b,#090b0a);overflow:hidden}.header{padding:12px 14px;border-bottom:1px solid rgba(212,175,55,.16);display:flex;justify-content:space-between;align-items:center}.title{font-size:16px;font-weight:800;color:#e5d8a4}.count{font-size:12px;color:#aab4ae}.list{padding:8px 12px 12px}.row{display:grid;grid-template-columns:34px 1fr 72px;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.055)}.row:last-child{border-bottom:0}.rank{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;border:1px solid rgba(212,175,55,.35);font-size:12px;font-weight:800}.name{font-size:13px;font-weight:700}.sub{font-size:11px;color:#929c96;margin-top:2px}.value{text-align:right;font-size:12px;color:#d6c177}.progress{height:4px;border-radius:999px;background:#272c29;margin-top:6px;overflow:hidden}.progress div{height:100%;background:#b9a25a}.empty{padding:20px 8px;text-align:center;color:#929c96;font-size:12px}
+</style>
+<script>
+$(()=>{
+const maps=[{id:'map_mvvdhspx',name:'大地图',total:4},{id:'map_mvvdxwcuel',name:'北方基地内部图',total:3},{id:'map_mvvelng9xr',name:'一环',total:3},{id:'map_mvvep7oigp',name:'二环',total:4},{id:'map_mvvesuwm2u',name:'三环',total:3}];
+function readVars(){try{const id=getCurrentMessageId();return _.get(getVariables({type:'message',message_id:id}),'stat_data',{})}catch(error){console.warn('[末世地标进度] 读取变量失败:',error);return{}}}
+function render(){const mapData=(readVars().末世地图||{});const pins=mapData.已发现地标||{};const visited=new Set(Object.values(pins).filter(pin=>pin&&pin.已访问).map(pin=>pin.所属地图));const rows=maps.map((map,index)=>{const entries=Object.values(pins).filter(pin=>pin&&pin.所属地图===map.id);const count=entries.length;return{id:map.id,name:map.name,count:_.clamp(count,0,map.total),total:map.total,active:visited.has(map.id),index}}).sort((a,b)=>b.count-a.count||a.index-b.index);let html=`<div class="endworld-board"><div class="panel"><div class="header"><div class="title">区域地标进度</div><div class="count">发现 ${Object.keys(pins).length} / 17</div></div><div class="list">`;if(!rows.length)html+='<div class="empty">暂无区域数据</div>';else for(let i=0;i<rows.length;i++){const r=rows[i],pct=Math.round(r.count/r.total*100);html+=`<div class="row"><div class="rank">${i+1}</div><div><div class="name">${r.name}</div><div class="sub">${r.active?'已访问':'未访问'} · ${r.count}/${r.total}</div><div class="progress"><div style="width:${pct}%"></div></div></div><div class="value">${pct}%</div></div>`}html+='</div></div></div>';$('#app').html(html)}
+render();setInterval(render,1500);
+});
+</script>
+</body>

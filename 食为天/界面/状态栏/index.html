@@ -1,0 +1,17 @@
+<head></head>
+<body>
+<div id="app"></div>
+<style>
+*{box-sizing:border-box}.endworld-status{width:100%;color:#d9d4c7;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.panel{border:1px solid rgba(212,175,55,.28);border-radius:10px;background:linear-gradient(135deg,rgba(24,29,27,.96),rgba(10,12,11,.96));overflow:hidden}.header{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid rgba(212,175,55,.18)}.title{font-size:16px;font-weight:700;color:#e6d8a8}.badge{font-size:12px;color:#9fb1a2;border:1px solid rgba(159,177,162,.25);border-radius:999px;padding:3px 8px}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:12px}.cell{border:1px solid rgba(217,212,199,.09);border-radius:8px;padding:10px;background:rgba(255,255,255,.025)}.label{font-size:11px;color:#929d96;margin-bottom:5px}.value{font-size:14px;font-weight:700;color:#f1ead2}.progress{padding:0 12px 12px}.bar{height:7px;border-radius:999px;background:#252a27;overflow:hidden}.bar>div{height:100%;background:linear-gradient(90deg,#7f6b2e,#d4af37);transition:width .25s}.foot{display:flex;justify-content:space-between;font-size:11px;color:#9aa39d;margin-top:6px}@media(max-width:420px){.grid{grid-template-columns:1fr}}
+</style>
+<script>
+$(()=>{
+const mapNames={'map_mvvdhspx':'大地图','map_mvvdxwcuel':'北方基地内部图','map_mvvelng9xr':'一环','map_mvvep7oigp':'二环','map_mvvesuwm2u':'三环'};
+function readVars(){try{const id=getCurrentMessageId();const vars=getVariables({type:'message',message_id:id});return _.get(vars,'stat_data',{})}catch(error){console.warn('[末世状态栏] 读取变量失败:',error);return{}}}
+function render(){const data=readVars();const map=data.末世地图||{};const role=data.角色状态||{};const current=map.$当前地图ID||'map_mvvdhspx';const pins=map.已发现地标||{};const discovered=Object.keys(pins).length;const progress=_.clamp(Math.round(discovered/17*100),0,100);const unlocked=(map.已解锁区域||['map_mvvdhspx']).map(id=>mapNames[id]||id);
+$('#app').html(`<div class="endworld-status"><div class="panel"><div class="header"><div class="title">末世：破晓时代</div><div class="badge">${role.当前主线||'末世探索'}</div></div><div class="grid"><div class="cell"><div class="label">当前位置</div><div class="value">${role.当前位置||mapNames[current]}</div></div><div class="cell"><div class="label">当前地图</div><div class="value">${mapNames[current]||current}</div></div><div class="cell"><div class="label">最后交互</div><div class="value">${role.最后交互地标||'暂无'}</div></div><div class="cell"><div class="label">已解锁区域</div><div class="value">${unlocked.join(' / ')||'大地图'}</div></div></div><div class="progress"><div class="bar"><div style="width:${progress}%"></div></div><div class="foot"><span>地标发现</span><span>${discovered} / 17 · ${progress}%</span></div></div></div></div>`)}
+render();setInterval(render,1500);
+$(window).on('pagehide',()=>{});
+});
+</script>
+</body>

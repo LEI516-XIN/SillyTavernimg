@@ -1,0 +1,2373 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>互动地图 · 地图包生成器</title>
+  <style>
+    /* ====================================================================
+       北欧极简 · 干净明亮的桌面感
+       ==================================================================== */
+    :root {
+      --bg: #fafaf7;
+      /* 纸白，稍微偏暖 */
+      --bg-card: #ffffff;
+      --bg-muted: #f3f1ec;
+      /* 薄木板 */
+      --bg-subtle: #f7f6f2;
+      --border: #e6e2da;
+      --border-strong: #d6d0c4;
+      --text: #2d2a26;
+      --text-muted: #6b6660;
+      --text-faint: #9c968d;
+      --accent: #6b8e7f;
+      /* 北欧柔绿 */
+      --accent-hover: #5a7a6c;
+      --accent-soft: #e8efea;
+      --warn: #d4a24c;
+      /* 暖黄 */
+      --warn-soft: #f7efdc;
+      --info: #8aa8c2;
+      /* 浅蓝 */
+      --info-soft: #e8eff5;
+      --danger: #c07b6d;
+      --danger-soft: #f4e6e1;
+      --shadow-sm: 0 1px 2px rgba(45, 42, 38, 0.04);
+      --shadow: 0 2px 8px rgba(45, 42, 38, 0.06);
+      --shadow-lg: 0 6px 20px rgba(45, 42, 38, 0.08);
+      --radius-sm: 4px;
+      --radius: 6px;
+      --radius-lg: 10px;
+      --font: 'Inter', -apple-system, 'Helvetica Neue', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 14px;
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    #app {
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    button {
+      font-family: inherit;
+      font-size: inherit;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text);
+      padding: 6px 14px;
+      border-radius: var(--radius);
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+
+    button:hover:not(:disabled) {
+      background: var(--bg-subtle);
+      border-color: var(--border-strong);
+    }
+
+    button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    button.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    button.primary:hover:not(:disabled) {
+      background: var(--accent-hover);
+      border-color: var(--accent-hover);
+    }
+
+    button.ghost {
+      border-color: transparent;
+      background: transparent;
+      color: var(--text-muted);
+      padding: 4px 8px;
+    }
+
+    button.ghost:hover:not(:disabled) {
+      background: var(--bg-muted);
+      color: var(--text);
+    }
+
+    button.danger {
+      color: var(--danger);
+      border-color: var(--danger-soft);
+    }
+
+    button.danger:hover:not(:disabled) {
+      background: var(--danger-soft);
+      border-color: var(--danger);
+    }
+
+    input[type="text"],
+    input[type="url"],
+    input[type="number"],
+    textarea,
+    select {
+      font-family: inherit;
+      font-size: 13px;
+      padding: 7px 10px;
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text);
+      border-radius: var(--radius);
+      width: 100%;
+      outline: none;
+      transition: border-color 0.15s, background 0.15s;
+    }
+
+    input:focus,
+    textarea:focus,
+    select:focus {
+      border-color: var(--accent);
+      background: #fff;
+    }
+
+    input[type="color"] {
+      width: 40px;
+      height: 32px;
+      padding: 2px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--bg-card);
+      cursor: pointer;
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 60px;
+      line-height: 1.5;
+    }
+
+    label {
+      display: block;
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+      font-weight: 500;
+    }
+
+    /* ── 顶栏 ───────────────────────────────────────── */
+    .topbar {
+      height: 56px;
+      flex-shrink: 0;
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      gap: 16px;
+    }
+
+    .topbar-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .topbar-meta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex: 1;
+    }
+
+    .topbar-meta input {
+      width: auto;
+      min-width: 0;
+      flex: 1;
+      max-width: 160px;
+    }
+
+    .topbar-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    /* ── 主工作区 ──────────────────────────────────── */
+    .workspace {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+    }
+
+    .pane {
+      background: var(--bg-card);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .pane:last-child {
+      border-right: none;
+    }
+
+    .pane-header {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      background: var(--bg-card);
+    }
+
+    .pane-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .pane-subtitle {
+      font-size: 11px;
+      color: var(--text-faint);
+      margin-top: 2px;
+    }
+
+    .pane-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px 14px;
+    }
+
+    /* ── 图片库 ─────────────────────────────────────── */
+    .library {
+      width: 240px;
+      flex-shrink: 0;
+      transition: width 0.2s ease;
+    }
+
+    .library.collapsed {
+      width: 36px;
+    }
+
+    .library.collapsed .pane-header {
+      padding: 12px 6px;
+      justify-content: center;
+    }
+
+    .library.collapsed .pane-body,
+    .library.collapsed .pane-title-text,
+    .library.collapsed .library-upload {
+      display: none;
+    }
+
+    .library-upload {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 14px;
+      padding-bottom: 14px;
+      border-bottom: 1px dashed var(--border);
+    }
+
+    .upload-zone {
+      border: 1.5px dashed var(--border-strong);
+      border-radius: var(--radius);
+      padding: 14px 10px;
+      text-align: center;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+      background: var(--bg-subtle);
+    }
+
+    .upload-zone:hover,
+    .upload-zone.drag-over {
+      background: var(--accent-soft);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .upload-zone .hint {
+      font-size: 11px;
+      color: var(--text-faint);
+      margin-top: 4px;
+    }
+
+    .upload-row {
+      display: flex;
+      gap: 6px;
+    }
+
+    .upload-row button {
+      flex: 1;
+      padding: 6px 8px;
+      font-size: 12px;
+    }
+
+    .url-import {
+      display: flex;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .url-import input {
+      flex: 1;
+      font-size: 12px;
+      padding: 6px 8px;
+    }
+
+    .url-import button {
+      padding: 6px 10px;
+      font-size: 12px;
+      flex-shrink: 0;
+    }
+
+    .library-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .library-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .library-item:hover {
+      background: var(--bg-subtle);
+    }
+
+    .library-item.used {
+      border-color: var(--accent-soft);
+      background: var(--accent-soft);
+    }
+
+    .library-item-thumb {
+      width: 40px;
+      height: 40px;
+      border-radius: var(--radius-sm);
+      object-fit: cover;
+      background: var(--bg-muted);
+      flex-shrink: 0;
+    }
+
+    .library-item-thumb.url {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      color: var(--text-faint);
+    }
+
+    .library-item-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .library-item-name {
+      font-size: 12px;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .library-item-meta {
+      font-size: 10px;
+      color: var(--text-faint);
+    }
+
+    .library-empty {
+      text-align: center;
+      padding: 30px 10px;
+      color: var(--text-faint);
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    /* ── 画布区 ────────────────────────────────────── */
+    .canvas-pane {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .breadcrumbs {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex-wrap: wrap;
+      font-size: 13px;
+    }
+
+    .breadcrumb {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      padding: 2px 6px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    .breadcrumb:hover {
+      background: var(--bg-muted);
+      color: var(--text);
+    }
+
+    .breadcrumb.active {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .breadcrumb-sep {
+      color: var(--text-faint);
+      user-select: none;
+    }
+
+    .canvas-wrap {
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+      position: relative;
+      background: var(--bg-subtle);
+      touch-action: none;
+      user-select: none;
+    }
+
+    .canvas-wrap.has-image {
+      cursor: grab;
+    }
+
+    .canvas-wrap.panning {
+      cursor: grabbing;
+    }
+
+    .canvas-empty {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      color: var(--text-faint);
+      padding: 40px;
+    }
+
+    .canvas-empty h3 {
+      font-size: 15px;
+      color: var(--text-muted);
+      margin: 0 0 8px;
+      font-weight: 500;
+    }
+
+    .canvas-empty p {
+      margin: 4px 0;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .canvas-empty .muted {
+      font-size: 12px;
+      color: var(--text-faint);
+      margin-top: 16px;
+    }
+
+    .canvas-img-wrap {
+      position: absolute;
+      top: 0;
+      left: 0;
+      box-shadow: var(--shadow-lg);
+      border-radius: var(--radius-sm);
+      background: #fff;
+      transform-origin: 0 0;
+      will-change: transform;
+      --view-scale: 1;
+    }
+
+    .canvas-img {
+      display: block;
+      max-width: none;
+      max-height: none;
+      border-radius: var(--radius-sm);
+      user-select: none;
+      -webkit-user-drag: none;
+      pointer-events: none;
+    }
+
+    .canvas-pin {
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      border: 2px solid #fff;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+      cursor: grab;
+      z-index: 5;
+      --pin-k: calc(1 / var(--view-scale, 1));
+      transform: translate(-50%, -50%) scale(var(--pin-k));
+      transition: filter 0.12s ease;
+    }
+
+    .canvas-pin:hover {
+      filter: brightness(1.12);
+      z-index: 10;
+      transform: translate(-50%, -50%) scale(calc(var(--pin-k) * 1.25));
+    }
+
+    .canvas-pin.selected {
+      outline: 3px solid var(--accent);
+      outline-offset: 2px;
+      transform: translate(-50%, -50%) scale(calc(var(--pin-k) * 1.15));
+    }
+
+    .canvas-pin.dragging {
+      cursor: grabbing;
+      opacity: 0.75;
+    }
+
+    .canvas-pin-label {
+      position: absolute;
+      top: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(45, 42, 38, 0.9);
+      color: #fff;
+      font-size: 11px;
+      padding: 2px 6px;
+      border-radius: var(--radius-sm);
+      white-space: nowrap;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+
+    .canvas-pin:hover .canvas-pin-label,
+    .canvas-pin.selected .canvas-pin-label {
+      opacity: 1;
+    }
+
+    .canvas-toolbar {
+      padding: 8px 14px;
+      border-top: 1px solid var(--border);
+      background: var(--bg-card);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    .canvas-toolbar-info {
+      font-size: 12px;
+      color: var(--text-faint);
+    }
+
+    /* ── 侧栏（点位编辑 + 层级列表） ─────────── */
+    .sidebar {
+      width: 300px;
+      flex-shrink: 0;
+    }
+
+    .sidebar-section {
+      margin-bottom: 18px;
+    }
+
+    .sidebar-section:last-child {
+      margin-bottom: 0;
+    }
+
+    .sidebar-section h4 {
+      margin: 0 0 8px;
+      font-size: 12px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 600;
+    }
+
+    .field {
+      margin-bottom: 10px;
+    }
+
+    .field-inline {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .field-inline input {
+      flex: 1;
+    }
+
+    .pin-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .pin-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 10px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      border: 1px solid transparent;
+      font-size: 12px;
+      transition: background 0.15s;
+    }
+
+    .pin-item:hover {
+      background: var(--bg-subtle);
+    }
+
+    .pin-item.active {
+      background: var(--accent-soft);
+      border-color: var(--accent);
+    }
+
+    .pin-item-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .pin-item-name {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .pin-item-type {
+      font-size: 10px;
+      color: var(--text-faint);
+      padding: 1px 6px;
+      background: var(--bg-muted);
+      border-radius: 8px;
+      flex-shrink: 0;
+    }
+
+    .map-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .map-list-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 10px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      font-size: 12px;
+      border: 1px solid transparent;
+      transition: background 0.15s;
+    }
+
+    .map-list-item:hover {
+      background: var(--bg-subtle);
+    }
+
+    .map-list-item.active {
+      background: var(--accent-soft);
+      border-color: var(--accent);
+      font-weight: 500;
+    }
+
+    .map-list-indent {
+      color: var(--text-faint);
+      flex-shrink: 0;
+    }
+
+    .map-list-name {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .map-list-default {
+      font-size: 10px;
+      color: var(--accent);
+      padding: 1px 6px;
+      background: var(--accent-soft);
+      border-radius: 8px;
+      flex-shrink: 0;
+    }
+
+    /* ── 提示/气泡 ───────────────────────────────── */
+    .tip {
+      padding: 8px 10px;
+      background: var(--info-soft);
+      border-left: 3px solid var(--info);
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.55;
+      margin-bottom: 10px;
+    }
+
+    .tip.warn {
+      background: var(--warn-soft);
+      border-left-color: var(--warn);
+    }
+
+    .tip.success {
+      background: var(--accent-soft);
+      border-left-color: var(--accent);
+    }
+
+    .tip-close {
+      float: right;
+      background: none;
+      border: none;
+      color: var(--text-faint);
+      cursor: pointer;
+      padding: 0 4px;
+      font-size: 14px;
+      line-height: 1;
+    }
+
+    .tip-close:hover {
+      color: var(--text);
+    }
+
+    .tooltip-wrap {
+      position: relative;
+      display: inline-flex;
+    }
+
+    .tooltip-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--bg-muted);
+      color: var(--text-faint);
+      font-size: 11px;
+      cursor: help;
+      border: none;
+      padding: 0;
+    }
+
+    .tooltip-wrap:hover .tooltip-icon {
+      background: var(--info-soft);
+      color: var(--info);
+    }
+
+    .tooltip {
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--text);
+      color: #fff;
+      font-size: 11px;
+      padding: 6px 10px;
+      border-radius: var(--radius-sm);
+      white-space: nowrap;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s;
+      z-index: 100;
+    }
+
+    .tooltip.multiline {
+      white-space: normal;
+      width: 220px;
+      line-height: 1.5;
+    }
+
+    .tooltip-wrap:hover .tooltip {
+      opacity: 1;
+    }
+
+    /* ── 分区列表（building 类型 pin） ──────── */
+    .floor-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .floor-item {
+      padding: 8px;
+      background: var(--bg-subtle);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+
+    .floor-item-header {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 6px;
+    }
+
+    .floor-item-header input {
+      flex: 1;
+      font-size: 12px;
+      padding: 5px 8px;
+    }
+
+    .floor-item-header button {
+      padding: 4px 8px;
+      font-size: 11px;
+    }
+
+    .floor-item textarea {
+      font-size: 12px;
+      padding: 5px 8px;
+      min-height: 40px;
+    }
+
+    /* ── 小弹出（确认框，非真弹窗） ───────── */
+    .popover {
+      position: fixed;
+      background: var(--bg-card);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-lg);
+      padding: 16px;
+      z-index: 1000;
+      min-width: 280px;
+      max-width: 360px;
+    }
+
+    .popover-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(45, 42, 38, 0.15);
+      z-index: 999;
+    }
+
+    .popover h3 {
+      margin: 0 0 10px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .popover p {
+      margin: 0 0 10px;
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    .popover-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      margin-top: 12px;
+    }
+
+    /* ── 滚动条 ─────────────────────────────────────── */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--border-strong);
+    }
+
+    /* ── 画布缩放控件 ────────────────────────────── */
+    .canvas-zoom-controls {
+      position: absolute;
+      right: 12px;
+      bottom: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 3px;
+      box-shadow: var(--shadow);
+      z-index: 20;
+    }
+
+    .canvas-zoom-controls button {
+      padding: 5px 10px;
+      font-size: 14px;
+      border: none;
+      background: transparent;
+      color: var(--text);
+      line-height: 1;
+      min-width: 32px;
+    }
+
+    .canvas-zoom-controls button:hover {
+      background: var(--bg-subtle);
+    }
+
+    .canvas-zoom-indicator {
+      position: absolute;
+      left: 12px;
+      bottom: 12px;
+      font-size: 11px;
+      color: var(--text-muted);
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 3px 8px;
+      z-index: 20;
+      user-select: none;
+      pointer-events: none;
+    }
+
+    /* ── 移动端 tabs（PC 下隐藏） ──────────────────── */
+    .mobile-tabs {
+      display: none;
+    }
+
+    /* ── 移动端适配（窄屏改为上下布局 + tab 切换） ─── */
+    @media (max-width: 860px) {
+      .topbar {
+        height: auto;
+        padding: 8px 10px;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .topbar-title {
+        flex-basis: 100%;
+        font-size: 14px;
+      }
+
+      .topbar-meta {
+        flex-wrap: wrap;
+        gap: 6px;
+        width: 100%;
+        flex: none;
+      }
+
+      .topbar-meta input {
+        max-width: none;
+        flex: 1 1 100px;
+        font-size: 12px;
+      }
+
+      .topbar-actions {
+        width: 100%;
+        justify-content: flex-end;
+      }
+
+      .topbar-actions button {
+        padding: 6px 10px;
+        font-size: 12px;
+      }
+
+      .mobile-tabs {
+        display: flex;
+        gap: 4px;
+        padding: 6px 10px;
+        background: var(--bg-card);
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+      }
+
+      .mobile-tab {
+        flex: 1;
+        padding: 8px 6px;
+        font-size: 12px;
+        border: 1px solid var(--border);
+        background: var(--bg-card);
+        border-radius: var(--radius);
+        color: var(--text-muted);
+      }
+
+      .mobile-tab.active {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+      }
+
+      .workspace {
+        flex-direction: column;
+        min-height: 0;
+      }
+
+      .library,
+      .sidebar,
+      .canvas-pane {
+        width: 100%;
+        border-right: none;
+        min-height: 0;
+        min-width: 0;
+        flex: 1 1 auto;
+      }
+
+      .library.mobile-hidden,
+      .canvas-pane.mobile-hidden,
+      .sidebar.mobile-hidden {
+        display: none;
+      }
+
+      .library.collapsed {
+        width: 100%;
+      }
+
+      .library.collapsed .pane-header {
+        padding: 12px 14px;
+        justify-content: space-between;
+      }
+
+      /* 竖屏下保证画布区有足够可见高度 —— 避免 flex 计算异常导致的 0 高度 */
+      .canvas-wrap {
+        min-height: 55vh;
+      }
+
+      .pane-header {
+        padding: 10px 12px;
+      }
+
+      .pane-body {
+        padding: 10px 12px;
+      }
+
+      .canvas-toolbar {
+        padding: 6px 10px;
+      }
+
+      .popover {
+        min-width: 0;
+        width: calc(100vw - 40px);
+        max-width: none;
+      }
+    }
+
+    /* ── 加载失败提示 ────────────────────────────── */
+    .load-error {
+      max-width: 480px;
+      margin: 80px auto;
+      padding: 20px 24px;
+      background: var(--warn-soft);
+      border-left: 4px solid var(--warn);
+      border-radius: var(--radius);
+      color: var(--text);
+    }
+
+    .load-error h2 {
+      margin: 0 0 8px;
+      font-size: 16px;
+    }
+
+    .load-error code {
+      background: #fff;
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-size: 12px;
+    }
+
+    /* 小工具类 */
+    .row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .row.gap-4 {
+      gap: 4px;
+    }
+
+    .spacer {
+      flex: 1;
+    }
+
+    .muted {
+      color: var(--text-faint);
+    }
+
+    .small {
+      font-size: 11px;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="app"></div>
+  <noscript>
+    <div class="load-error">
+      <h2>需要启用 JavaScript</h2>
+      <p>这个工具依赖 JavaScript 运行。请在浏览器中启用它。</p>
+    </div>
+  </noscript>
+
+  <script type="module">
+    // ====================================================================
+    // 互动地图 · 地图包生成器
+    // ====================================================================
+    // 单 HTML 工具，不依赖酒馆、不依赖本项目其它文件。
+    // 数据结构完全对齐末世：破晓时代互动地图的 MapPackSchema
+    // ====================================================================
+
+    let Vue;
+    try {
+      Vue = await import('https://testingcf.jsdelivr.net/npm/vue@3.5.13/dist/vue.esm-browser.prod.js');
+    } catch (e) {
+      document.getElementById('app').innerHTML = `
+        <div class="load-error">
+          <h2>加载失败</h2>
+          <p>无法从 CDN 加载 Vue 运行时。请检查网络连接（本工具需要联网才能首次加载）。</p>
+          <p class="muted">错误信息：<code>${e.message}</code></p>
+        </div>`;
+      throw e;
+    }
+
+    const { createApp, ref, reactive, computed, watch, onMounted, onBeforeUnmount, nextTick } = Vue;
+
+    // ── 工具函数 ──────────────────────────────────────
+    /** 生成唯一 ID（不依赖外部库） */
+    function uid(prefix = 'id') {
+      return `${prefix}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+    }
+
+    /** 从文件名取出不带扩展名的部分 */
+    function baseName(name) {
+      return name.replace(/\.[^.]+$/, '');
+    }
+
+    /** 判断字符串是否为 http(s) URL */
+    function isExternalUrl(s) {
+      return /^https?:\/\//i.test(s || '');
+    }
+
+    /** 仅接受图片文件 */
+    function isImageFile(f) {
+      return /^image\//.test(f.type) || /\.(png|jpe?g|gif|webp|bmp|avif)$/i.test(f.name);
+    }
+
+    /** 触发浏览器下载 */
+    function downloadJson(filename, obj) {
+      const text = JSON.stringify(obj, null, 2);
+      const blob = new Blob([text], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    /** localStorage 包装 */
+    const store = {
+      get(key, fallback) {
+        try { const v = localStorage.getItem(key); return v == null ? fallback : JSON.parse(v); }
+        catch { return fallback; }
+      },
+      set(key, val) {
+        try { localStorage.setItem(key, JSON.stringify(val)); } catch { /* ignore */ }
+      },
+    };
+
+    // ── 默认空地图包 ──────────────────────────────────
+    function emptyPack() {
+      const rootId = 'map_' + Date.now().toString(36);
+      return {
+        name: '未命名地图包',
+        version: '1.0.0',
+        author: '',
+        baseUrl: '',
+        defaultMapId: rootId,
+        maps: {
+          [rootId]: { name: '主地图', image: '', pins: [] },
+        },
+      };
+    }
+
+    // ── 主应用 ────────────────────────────────────────
+    const App = {
+      setup() {
+        // 地图包数据（与 MapPackSchema 对齐）
+        const pack = reactive(emptyPack());
+
+        // 编辑器状态（不会写入导出的 JSON）
+        const currentMapId = ref(pack.defaultMapId);
+        const selectedPinId = ref(null);
+        const libraryCollapsed = ref(false);
+
+        // 移动端 tab 切换
+        const mobileView = ref('map');
+
+        // 画布 pan / zoom 状态
+        const view = reactive({ scale: 1, tx: 0, ty: 0 });
+        const isPanning = ref(false);
+
+        // 本地图片库：{ name, url: ObjectURL, type: 'local'|'external' }
+        // 注意：external 类型 url 就是外链本身
+        const imageAssets = ref([]);
+
+        // 一次性教程标记（localStorage 存储）
+        const tipState = reactive({
+          showPortalHelp: !store.get('mapgen_tip_portal', false),
+          showImportHelp: !store.get('mapgen_tip_import', false),
+          showCanvasHelp: !store.get('mapgen_tip_canvas', false),
+        });
+
+        function dismissTip(key) {
+          tipState['show' + key.charAt(0).toUpperCase() + key.slice(1)] = false;
+          store.set('mapgen_tip_' + key, true);
+        }
+
+        // 导出后的提示弹层
+        const exportNotice = ref(null); // { mode: 'folder'|'external'|'mixed', localCount, externalCount }
+
+        // 确认/输入框（用作轻量弹出）
+        const popover = ref(null); // { type, title, ... }
+
+        // ── 计算属性 ──────────────────────────────────
+        const mapIds = computed(() => Object.keys(pack.maps));
+        const currentMap = computed(() => pack.maps[currentMapId.value] || null);
+        const currentPins = computed(() => currentMap.value?.pins || []);
+        const selectedPin = computed(() =>
+          currentPins.value.find(p => p.id === selectedPinId.value) || null
+        );
+
+        /** 当前图片的显示 URL（在画布上用） */
+        const canvasImageUrl = computed(() => {
+          if (!currentMap.value?.image) return '';
+          if (isExternalUrl(currentMap.value.image)) return currentMap.value.image;
+          // 本地图片：在 imageAssets 里找对应 ObjectURL
+          const asset = imageAssets.value.find(a => a.name === currentMap.value.image);
+          return asset?.url || '';
+        });
+
+        // 切换地图层/图片时，视图先重置为 1.0；图片加载完成后会自动 fit 到屏幕
+        watch(canvasImageUrl, () => {
+          view.scale = 1;
+          view.tx = 0;
+          view.ty = 0;
+        });
+
+        /** 面包屑（从当前层往上回溯 parentMapId） */
+        const breadcrumbs = computed(() => {
+          const chain = [];
+          let id = currentMapId.value;
+          const seen = new Set();
+          while (id && pack.maps[id] && !seen.has(id)) {
+            seen.add(id);
+            chain.unshift({ id, name: pack.maps[id].name });
+            id = pack.maps[id].parentMapId;
+          }
+          return chain;
+        });
+
+        /** 层级树：用缩进级别标记每个 map */
+        const mapTree = computed(() => {
+          const result = [];
+          const children = {};
+          for (const [id, m] of Object.entries(pack.maps)) {
+            const parent = m.parentMapId || '_root';
+            if (!children[parent]) children[parent] = [];
+            children[parent].push(id);
+          }
+          function walk(parent, depth) {
+            for (const id of children[parent] || []) {
+              result.push({ id, depth, ...pack.maps[id] });
+              walk(id, depth + 1);
+            }
+          }
+          walk('_root', 0);
+          // 无 parent 的孤岛也要显示
+          for (const id of mapIds.value) {
+            if (!result.find(r => r.id === id)) {
+              result.push({ id, depth: 0, ...pack.maps[id] });
+            }
+          }
+          return result;
+        });
+
+        /** 统计本地 vs 外链图片数量（导出防呆用） */
+        const imageUsageStats = computed(() => {
+          let local = 0, external = 0, empty = 0;
+          for (const m of Object.values(pack.maps)) {
+            if (!m.image) empty++;
+            else if (isExternalUrl(m.image)) external++;
+            else local++;
+          }
+          return { local, external, empty };
+        });
+
+        // ── 图片库操作 ────────────────────────────────
+        function addImageAssets(files) {
+          const added = [];
+          for (const f of files) {
+            if (!isImageFile(f)) continue;
+            // 去重（同名跳过）
+            if (imageAssets.value.find(a => a.name === f.name && a.type === 'local')) continue;
+            imageAssets.value.push({
+              name: f.name,
+              url: URL.createObjectURL(f),
+              type: 'local',
+              size: f.size,
+            });
+            added.push(f.name);
+          }
+          return added;
+        }
+
+        function addExternalImage(url) {
+          const trimmed = url.trim();
+          if (!isExternalUrl(trimmed)) return false;
+          if (imageAssets.value.find(a => a.name === trimmed)) return false;
+          imageAssets.value.push({
+            name: trimmed,
+            url: trimmed,
+            type: 'external',
+          });
+          return true;
+        }
+
+        function removeImageAsset(name) {
+          const idx = imageAssets.value.findIndex(a => a.name === name);
+          if (idx < 0) return;
+          const asset = imageAssets.value[idx];
+          if (asset.type === 'local') URL.revokeObjectURL(asset.url);
+          imageAssets.value.splice(idx, 1);
+        }
+
+        function useImageForCurrentMap(name) {
+          if (!currentMap.value) return;
+          currentMap.value.image = name;
+        }
+
+        /** 判断某张图片是否被任何 map 使用 */
+        function isImageUsed(name) {
+          return Object.values(pack.maps).some(m => m.image === name);
+        }
+
+        // ── 地图层操作 ────────────────────────────────
+        function createMapLayer(name, parentMapId) {
+          const id = 'map_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 4);
+          pack.maps[id] = {
+            name: name || '新地图层',
+            image: '',
+            parentMapId: parentMapId || undefined,
+            pins: [],
+          };
+          return id;
+        }
+
+        function deleteMapLayer(id) {
+          if (!pack.maps[id]) return;
+          if (id === pack.defaultMapId) {
+            alert('不能删除默认地图层。请先把另一层设为默认，再删除此层。');
+            return;
+          }
+          // 把子层级的 parentMapId 指向被删层的父级
+          const deleted = pack.maps[id];
+          for (const m of Object.values(pack.maps)) {
+            if (m.parentMapId === id) m.parentMapId = deleted.parentMapId;
+          }
+          // 清理 portal pin 对此层的引用
+          for (const m of Object.values(pack.maps)) {
+            for (const p of m.pins) {
+              if (p.targetMapId === id) p.targetMapId = undefined;
+            }
+          }
+          delete pack.maps[id];
+          if (currentMapId.value === id) {
+            currentMapId.value = pack.defaultMapId;
+          }
+        }
+
+        function renameMapLayer(id, newName) {
+          if (pack.maps[id]) pack.maps[id].name = newName;
+        }
+
+        function setDefaultMap(id) {
+          if (pack.maps[id]) pack.defaultMapId = id;
+        }
+
+        function switchToMap(id) {
+          if (pack.maps[id]) {
+            currentMapId.value = id;
+            selectedPinId.value = null;
+          }
+        }
+
+        // ── 点位操作 ──────────────────────────────────
+        function addPinAt(xPercent, yPercent) {
+          if (!currentMap.value) return;
+          const pin = {
+            id: 'pin_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 4),
+            name: '新点位',
+            x: Math.round(xPercent * 10) / 10,
+            y: Math.round(yPercent * 10) / 10,
+            desc: '',
+            color: '#6b8e7f',
+            type: 'location',
+          };
+          currentMap.value.pins.push(pin);
+          selectedPinId.value = pin.id;
+        }
+
+        function deletePin(id) {
+          if (!currentMap.value) return;
+          const idx = currentMap.value.pins.findIndex(p => p.id === id);
+          if (idx >= 0) currentMap.value.pins.splice(idx, 1);
+          if (selectedPinId.value === id) selectedPinId.value = null;
+        }
+
+        function duplicatePin(id) {
+          if (!currentMap.value) return;
+          const orig = currentMap.value.pins.find(p => p.id === id);
+          if (!orig) return;
+          const copy = JSON.parse(JSON.stringify(orig));
+          copy.id = 'pin_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 4);
+          copy.name = orig.name + ' (副本)';
+          copy.x = Math.min(100, orig.x + 3);
+          copy.y = Math.min(100, orig.y + 3);
+          currentMap.value.pins.push(copy);
+          selectedPinId.value = copy.id;
+        }
+
+        /** Portal pin：进入它的下层地图；若未绑定则让用户新建或选择 */
+        function enterPortal(pin) {
+          if (pin.type !== 'portal') return;
+          if (pin.targetMapId && pack.maps[pin.targetMapId]) {
+            switchToMap(pin.targetMapId);
+            return;
+          }
+          // 弹出"新建下层"
+          popover.value = {
+            type: 'createSubLayer',
+            pinId: pin.id,
+            newName: pin.name + ' - 下层',
+          };
+        }
+
+        function confirmCreateSubLayer() {
+          if (!popover.value || popover.value.type !== 'createSubLayer') return;
+          const pin = currentPins.value.find(p => p.id === popover.value.pinId);
+          if (!pin) { popover.value = null; return; }
+          const newId = createMapLayer(popover.value.newName, currentMapId.value);
+          pin.targetMapId = newId;
+          popover.value = null;
+          switchToMap(newId);
+        }
+
+        // ── 分区操作（building 类型 pin，分区可以是楼层或无高度区分的并列区域） ────────────
+        function addFloor(pin) {
+          if (!pin.floors) pin.floors = [];
+          pin.floors.push({ name: '', desc: '' });
+        }
+
+        function removeFloor(pin, idx) {
+          pin.floors?.splice(idx, 1);
+        }
+
+        function moveFloor(pin, idx, dir) {
+          const arr = pin.floors;
+          if (!arr) return;
+          const ni = idx + dir;
+          if (ni < 0 || ni >= arr.length) return;
+          [arr[idx], arr[ni]] = [arr[ni], arr[idx]];
+        }
+
+        // ── 导入/导出 ─────────────────────────────────
+        function importJson(file) {
+          const reader = new FileReader();
+          reader.onload = () => {
+            try {
+              const data = JSON.parse(reader.result);
+              if (!data.maps || typeof data.maps !== 'object') {
+                throw new Error('JSON 缺少 maps 字段');
+              }
+              if (!data.defaultMapId) {
+                throw new Error('JSON 缺少 defaultMapId 字段');
+              }
+              // 释放旧的 ObjectURL
+              imageAssets.value.forEach(a => {
+                if (a.type === 'local') URL.revokeObjectURL(a.url);
+              });
+              imageAssets.value = [];
+              // 覆盖 pack
+              Object.assign(pack, {
+                name: data.name || '未命名地图包',
+                version: data.version || '1.0.0',
+                author: data.author || '',
+                baseUrl: data.baseUrl || '',
+                defaultMapId: data.defaultMapId,
+                maps: data.maps,
+              });
+              // 外链图片自动加入图片库
+              for (const m of Object.values(pack.maps)) {
+                if (m.image && isExternalUrl(m.image) && !imageAssets.value.find(a => a.name === m.image)) {
+                  imageAssets.value.push({ name: m.image, url: m.image, type: 'external' });
+                }
+              }
+              currentMapId.value = pack.defaultMapId;
+              selectedPinId.value = null;
+              alert('导入成功！本地图片需要你重新上传对应的图片文件夹。');
+            } catch (e) {
+              alert('导入失败：' + e.message);
+            }
+          };
+          reader.readAsText(file);
+        }
+
+        function exportJson() {
+          // 构造纯净的导出对象（去掉编辑器内部字段）
+          const exported = {
+            name: pack.name,
+            version: pack.version,
+            author: pack.author,
+            baseUrl: pack.baseUrl,
+            defaultMapId: pack.defaultMapId,
+            maps: {},
+          };
+          for (const [id, m] of Object.entries(pack.maps)) {
+            exported.maps[id] = {
+              name: m.name,
+              image: m.image,
+              ...(m.parentMapId ? { parentMapId: m.parentMapId } : {}),
+              pins: m.pins.map(p => ({
+                id: p.id,
+                name: p.name,
+                x: p.x,
+                y: p.y,
+                desc: p.desc || '',
+                color: p.color || '#e74c3c',
+                type: p.type,
+                ...(p.targetMapId ? { targetMapId: p.targetMapId } : {}),
+                ...(p.floors?.length ? { floors: p.floors } : {}),
+              })),
+            };
+          }
+
+          const filename = (pack.name || 'mappack').replace(/\s+/g, '_') + '.json';
+          downloadJson(filename, exported);
+
+          const { local, external } = imageUsageStats.value;
+          let mode = 'external';
+          if (local > 0 && external > 0) mode = 'mixed';
+          else if (local > 0) mode = 'folder';
+          exportNotice.value = { mode, local, external, filename };
+        }
+
+        // 清理 ObjectURL
+        onBeforeUnmount(() => {
+          imageAssets.value.forEach(a => {
+            if (a.type === 'local') URL.revokeObjectURL(a.url);
+          });
+        });
+
+        return {
+          // state
+          pack,
+          currentMapId,
+          selectedPinId,
+          libraryCollapsed,
+          mobileView,
+          view,
+          isPanning,
+          imageAssets,
+          tipState,
+          exportNotice,
+          popover,
+          // computed
+          mapIds,
+          currentMap,
+          currentPins,
+          selectedPin,
+          canvasImageUrl,
+          breadcrumbs,
+          mapTree,
+          imageUsageStats,
+          // helpers
+          isExternalUrl,
+          isImageUsed,
+          dismissTip,
+          // actions
+          addImageAssets,
+          addExternalImage,
+          removeImageAsset,
+          useImageForCurrentMap,
+          createMapLayer,
+          deleteMapLayer,
+          renameMapLayer,
+          setDefaultMap,
+          switchToMap,
+          addPinAt,
+          deletePin,
+          duplicatePin,
+          enterPortal,
+          confirmCreateSubLayer,
+          addFloor,
+          removeFloor,
+          moveFloor,
+          importJson,
+          exportJson,
+        };
+      },
+
+      template: /* html */ `
+<div>
+  <!-- ══════════════ 顶栏 ══════════════ -->
+  <div class="topbar">
+    <div class="topbar-title">
+      🗺️ <span>互动地图 · 地图包生成器</span>
+    </div>
+    <div class="topbar-meta">
+      <input v-model="pack.name" placeholder="地图包名称" title="显示在酒馆地图包管理列表里的名字" />
+      <input v-model="pack.version" placeholder="1.0.0" style="max-width:80px" title="版本号，自定义即可" />
+      <input v-model="pack.author" placeholder="作者（可选）" title="你的昵称，会显示在地图包信息里" />
+    </div>
+    <div class="topbar-actions">
+      <label class="tooltip-wrap" style="margin:0;position:relative;">
+        <button class="ghost" @click="$refs.importInput.click()">
+          📂 导入 JSON
+        </button>
+        <span class="tooltip multiline">继续编辑已有的 mappack.json 文件</span>
+        <input ref="importInput" type="file" accept=".json" style="display:none"
+          @change="e => e.target.files[0] && (importJson(e.target.files[0]), e.target.value='')" />
+      </label>
+      <button class="primary" @click="exportJson">💾 导出 JSON</button>
+    </div>
+  </div>
+
+  <!-- ══════════════ 移动端 tab 切换（窄屏下显示） ══════════════ -->
+  <div class="mobile-tabs">
+    <button class="mobile-tab" :class="{ active: mobileView === 'library' }" @click="mobileView = 'library'">🖼️ 图片</button>
+    <button class="mobile-tab" :class="{ active: mobileView === 'map' }" @click="mobileView = 'map'">🗺️ 地图</button>
+    <button class="mobile-tab" :class="{ active: mobileView === 'sidebar' }" @click="mobileView = 'sidebar'">📍 点位</button>
+  </div>
+
+  <!-- ══════════════ 主工作区 ══════════════ -->
+  <div class="workspace">
+
+    <!-- ┄┄┄┄ 左栏：图片库 ┄┄┄┄ -->
+    <div class="pane library" :class="{ collapsed: libraryCollapsed, 'mobile-hidden': mobileView !== 'library' }">
+      <div class="pane-header">
+        <div class="pane-title" v-show="!libraryCollapsed">
+          🖼️ <span class="pane-title-text">图片库</span>
+        </div>
+        <button class="ghost" @click="libraryCollapsed = !libraryCollapsed"
+          :title="libraryCollapsed ? '展开图片库' : '折叠图片库（避免做点位时误操作）'">
+          {{ libraryCollapsed ? '▸' : '◂' }}
+        </button>
+      </div>
+
+      <div class="pane-body" v-show="!libraryCollapsed">
+        <!-- 上传区 -->
+        <div class="library-upload">
+          <div class="upload-zone"
+            @click="$refs.folderInput.click()"
+            @dragover.prevent="$event.currentTarget.classList.add('drag-over')"
+            @dragleave.prevent="$event.currentTarget.classList.remove('drag-over')"
+            @drop.prevent="onDrop">
+            <div>📁 点击 / 拖入文件夹</div>
+            <div class="hint">只会读取里面的图片文件</div>
+          </div>
+          <div class="upload-row">
+            <button class="ghost" @click="$refs.folderInput.click()">选文件夹</button>
+            <button class="ghost" @click="$refs.fileInput.click()">选单张图</button>
+          </div>
+          <input ref="folderInput" type="file" webkitdirectory directory multiple accept="image/*"
+            style="display:none" @change="onFolderPick" />
+          <input ref="fileInput" type="file" multiple accept="image/*"
+            style="display:none" @change="onFilesPick" />
+
+          <!-- 外链输入 -->
+          <div class="url-import">
+            <input v-model="urlInput" type="url" placeholder="粘贴图床直链（catbox、imgur...）"
+              @keyup.enter="onAddUrl" />
+            <button class="ghost" @click="onAddUrl" :disabled="!urlInput">+</button>
+          </div>
+          <div class="small muted" style="margin-top:4px">
+            💡 用图床链接不需要将图片上传仓库，只需要在酒馆导入json文件
+          </div>
+        </div>
+
+        <!-- 图片列表 -->
+        <div v-if="imageAssets.length === 0" class="library-empty">
+          还没有图片<br />
+          <span class="small">选文件夹或粘贴外链开始</span>
+        </div>
+        <div v-else class="library-list">
+          <div v-for="img in imageAssets" :key="img.name"
+            class="library-item"
+            :class="{ used: isImageUsed(img.name) }"
+            :title="img.type === 'external' ? '外链：' + img.name : '本地图片：' + img.name"
+            @click="useImageForCurrentMap(img.name)">
+            <img v-if="img.type === 'local'" :src="img.url" class="library-item-thumb" loading="lazy" />
+            <div v-else class="library-item-thumb url">🔗</div>
+            <div class="library-item-info">
+              <div class="library-item-name">{{ img.type === 'external' ? '外链图' : img.name }}</div>
+              <div class="library-item-meta">
+                {{ img.type === 'external' ? img.name.replace(/^https?:\\/\\//, '').slice(0, 28) + '...' : '本地' }}
+              </div>
+            </div>
+            <button class="ghost" style="padding:2px 4px;font-size:11px"
+              @click.stop="removeImageAsset(img.name)" title="从库中移除">✕</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ┄┄┄┄ 中栏：画布 ┄┄┄┄ -->
+    <div class="pane canvas-pane" :class="{ 'mobile-hidden': mobileView !== 'map' }">
+      <div class="pane-header">
+        <div class="breadcrumbs">
+          <template v-for="(bc, i) in breadcrumbs" :key="bc.id">
+            <span v-if="i > 0" class="breadcrumb-sep">›</span>
+            <button class="breadcrumb" :class="{ active: i === breadcrumbs.length - 1 }"
+              @click="switchToMap(bc.id)">
+              {{ bc.name }}
+            </button>
+          </template>
+          <span v-if="breadcrumbs.length === 0" class="muted small">无层级</span>
+        </div>
+        <div class="row gap-4">
+          <span class="small muted">{{ currentPins.length }} 个点位</span>
+        </div>
+      </div>
+
+      <div class="canvas-wrap" ref="canvasWrap"
+        :class="{ 'has-image': !!canvasImageUrl, panning: isPanning }"
+        @wheel="onCanvasWheel"
+        @mousedown="onCanvasMouseDown"
+        @touchstart="onCanvasTouchStart"
+        @touchmove="onCanvasTouchMove"
+        @touchend="onCanvasTouchEnd"
+        @touchcancel="onCanvasTouchEnd">
+        <!-- 空状态提示 -->
+        <div v-if="!canvasImageUrl" class="canvas-empty">
+          <h3>这层还没选图</h3>
+          <p>在<b>左边图片库</b>点一下任意图片，就会设为当前层的背景</p>
+          <p class="muted">或者上传新的图片 / 粘贴图床链接</p>
+          <p class="muted">如果左边图片库看不到内容，确认已点开（顶部的 <b>◂</b> 按钮）</p>
+        </div>
+
+        <!-- 图片 + 点位 -->
+        <div v-else class="canvas-img-wrap" ref="imgWrap"
+          :style="{
+            transform: 'translate(' + view.tx + 'px, ' + view.ty + 'px) scale(' + view.scale + ')',
+            '--view-scale': view.scale
+          }">
+          <img :src="canvasImageUrl" class="canvas-img" draggable="false"
+            @load="onImageLoad" @error="imageLoaded = 'error'" />
+          <div v-for="pin in currentPins" :key="pin.id"
+            class="canvas-pin"
+            :class="{ selected: pin.id === selectedPinId, dragging: draggingPinId === pin.id }"
+            :style="{ left: pin.x + '%', top: pin.y + '%', background: pin.color }"
+            @mousedown.stop="onPinMouseDown($event, pin)"
+            @touchstart.stop="onPinTouchStart($event, pin)"
+            @click.stop="selectedPinId = pin.id"
+            :title="pin.name">
+            <span class="canvas-pin-label">{{ pin.name }}</span>
+          </div>
+        </div>
+
+        <!-- 缩放指示 + 控件 -->
+        <div v-if="canvasImageUrl" class="canvas-zoom-indicator">
+          {{ Math.round(view.scale * 100) }}%
+        </div>
+        <div v-if="canvasImageUrl" class="canvas-zoom-controls">
+          <button @click="zoomIn" title="放大">＋</button>
+          <button @click="zoomOut" title="缩小">－</button>
+          <button @click="resetView" title="重置视图 / 适应屏幕">⟲</button>
+        </div>
+      </div>
+
+      <!-- 画布底部工具栏：教程提示 + 层管理 -->
+      <div class="canvas-toolbar">
+        <span class="canvas-toolbar-info">
+          <template v-if="canvasImageUrl && tipState.showCanvasHelp">
+            💡 <b>点图片任意位置</b>添加点位 · 点位可拖动微调
+            <button class="tip-close" @click="dismissTip('canvas')" title="不再显示">✕</button>
+          </template>
+          <template v-else-if="canvasImageUrl">
+            点图片加点位，选中后右侧编辑
+          </template>
+        </span>
+        <div class="row">
+          <button class="ghost" @click="openMapManager = true" title="管理所有地图层">
+            🗂️ 所有层 ({{ mapIds.length }})
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ┄┄┄┄ 右栏：点位/层级侧栏 ┄┄┄┄ -->
+    <div class="pane sidebar" :class="{ 'mobile-hidden': mobileView !== 'sidebar' }">
+      <div class="pane-header">
+        <div class="pane-title">
+          {{ selectedPin ? '✏️ 编辑点位' : '📍 当前层点位' }}
+        </div>
+      </div>
+      <div class="pane-body">
+
+        <!-- 未选中点位：显示当前层 pin 列表 + 快速层级切换 -->
+        <template v-if="!selectedPin">
+          <div v-if="tipState.showPortalHelp" class="tip">
+            <button class="tip-close" @click="dismissTip('portal')">✕</button>
+            点位有三种类型：<br />
+            • <b>普通地点</b>：可以直接走进去<br />
+            • <b>建筑</b>：可列出若干内部分区（可以是楼层，也可以是温室那种同层并列的区域），每个分区只有文字描述，不再配图<br />
+            • <b>跳转入口</b>：点击进入另一层地图（比如“北方基地”进入“一环核心区”）<br />
+            选中点位后可以切换类型。
+          </div>
+
+          <div class="sidebar-section">
+            <h4>当前层信息</h4>
+            <div class="field">
+              <label>这一层叫什么</label>
+              <input v-if="currentMap" v-model="currentMap.name" placeholder="如：北方基地俯瞰图" />
+            </div>
+            <div class="field small muted" v-if="currentMap?.image">
+              背景图：{{ isExternalUrl(currentMap.image) ? '🔗 ' + currentMap.image.slice(0, 40) + '...' : '📄 ' + currentMap.image }}
+            </div>
+          </div>
+
+          <div class="sidebar-section" v-if="currentPins.length > 0">
+            <h4>这一层的点位</h4>
+            <div class="pin-list">
+              <div v-for="pin in currentPins" :key="pin.id" class="pin-item"
+                @click="selectedPinId = pin.id">
+                <span class="pin-item-dot" :style="{ background: pin.color }"></span>
+                <span class="pin-item-name">{{ pin.name || '(未命名)' }}</span>
+                <span class="pin-item-type">{{ {location:'地点', building:'建筑', portal:'跳转'}[pin.type] }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div v-else class="sidebar-section">
+            <h4>点位</h4>
+            <div class="muted small">
+              {{ canvasImageUrl ? '在中间地图上点一下添加点位' : '先在左边选一张图作为背景' }}
+            </div>
+          </div>
+        </template>
+
+        <!-- 选中点位：编辑详情 -->
+        <template v-else>
+          <div class="sidebar-section">
+            <div class="row" style="margin-bottom:10px">
+              <button class="ghost" @click="selectedPinId = null">← 返回列表</button>
+              <div class="spacer"></div>
+              <button class="ghost" @click="duplicatePin(selectedPin.id)" title="复制此点位">⎘</button>
+              <button class="danger" @click="deletePin(selectedPin.id)">删除</button>
+            </div>
+
+            <div class="field">
+              <label>点位名称</label>
+              <input v-model="selectedPin.name" placeholder="如：北方基地主门" />
+            </div>
+
+            <div class="field">
+              <label>描述（可选，会在点击时显示）</label>
+              <textarea v-model="selectedPin.desc" placeholder="简短介绍这个地方"></textarea>
+            </div>
+
+            <div class="field">
+              <label>类型</label>
+              <select v-model="selectedPin.type">
+                <option value="location">普通地点</option>
+                <option value="building">建筑（含内部分区/楼层）</option>
+                <option value="portal">跳转入口（进入下层地图）</option>
+              </select>
+            </div>
+
+            <div class="field field-inline">
+              <label style="margin:0;width:auto">颜色</label>
+              <input type="color" :value="normalizeForPicker(selectedPin.color)" @input="selectedPin.color = $event.target.value" />
+              <input type="text" v-model="selectedPin.color" placeholder="#6b8e7f"
+                style="flex:1;max-width:110px;font-family:monospace;font-size:12px"
+                @blur="onHexBlur(selectedPin)" @keyup.enter="onHexBlur(selectedPin)" />
+            </div>
+
+            <div class="row gap-4" style="margin-top:8px">
+              <div style="flex:1">
+                <label>X (%)</label>
+                <input type="number" v-model.number="selectedPin.x" min="0" max="100" step="0.1" />
+              </div>
+              <div style="flex:1">
+                <label>Y (%)</label>
+                <input type="number" v-model.number="selectedPin.y" min="0" max="100" step="0.1" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Portal 类型：进入下层 -->
+          <div v-if="selectedPin.type === 'portal'" class="sidebar-section">
+            <h4>跳转入口设置</h4>
+            <div class="field">
+              <label>这个点位通向哪一层？</label>
+              <select v-model="selectedPin.targetMapId">
+                <option :value="undefined">未指定</option>
+                <option v-for="m in mapTree" :value="m.id" :key="m.id" :disabled="m.id === currentMapId">
+                  {{ '—'.repeat(m.depth) }} {{ m.name }}
+                </option>
+              </select>
+            </div>
+            <button class="primary" style="width:100%" @click="enterPortal(selectedPin)">
+              {{ selectedPin.targetMapId ? '→ 进入这一层继续编辑' : '+ 新建下层并进入' }}
+            </button>
+            <div v-if="selectedPin.targetMapId" class="small muted" style="margin-top:6px">
+              目标层存在的话会直接切过去，返回用顶部面包屑
+            </div>
+          </div>
+
+          <!-- Building 类型：分区编辑 -->
+          <div v-if="selectedPin.type === 'building'" class="sidebar-section">
+            <h4>内部分区</h4>
+            <div class="small muted" style="margin-bottom:6px">
+              分区可以是楼层（如"地下监控室"），也可以是同层内的并列区域（如“交易区”里的“地下黑市”）—— 只有文字描述，不配图
+            </div>
+            <div class="floor-list">
+              <div v-for="(fl, idx) in (selectedPin.floors || [])" :key="idx" class="floor-item">
+                <div class="floor-item-header">
+                  <input v-model="fl.name" placeholder="如：1F - 大厅 / 热带雨林区" />
+                  <button class="ghost" @click="moveFloor(selectedPin, idx, -1)" :disabled="idx===0">↑</button>
+                  <button class="ghost" @click="moveFloor(selectedPin, idx, 1)"
+                    :disabled="idx === (selectedPin.floors?.length || 1) - 1">↓</button>
+                  <button class="danger" @click="removeFloor(selectedPin, idx)">✕</button>
+                </div>
+                <textarea v-model="fl.desc" placeholder="这个分区有什么"></textarea>
+              </div>
+            </div>
+            <button class="ghost" style="width:100%;margin-top:8px" @click="addFloor(selectedPin)">
+              + 添加分区
+            </button>
+          </div>
+        </template>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════ 所有地图层弹出 ══════════════ -->
+  <template v-if="openMapManager">
+    <div class="popover-backdrop" @click="openMapManager = false"></div>
+    <div class="popover" style="left:50%;top:50%;transform:translate(-50%,-50%);min-width:420px;max-height:70vh;overflow:auto">
+      <h3>所有地图层</h3>
+      <p>层级关系由"跳转入口"点位决定。也可在这里手动新建独立层。</p>
+
+      <div class="map-list">
+        <div v-for="m in mapTree" :key="m.id"
+          class="map-list-item"
+          :class="{ active: m.id === currentMapId }">
+          <span class="map-list-indent">{{ '  '.repeat(m.depth) }}{{ m.depth > 0 ? '└ ' : '' }}</span>
+          <span class="map-list-name" @click="switchToMap(m.id), (openMapManager = false)">{{ m.name }}</span>
+          <span v-if="m.id === pack.defaultMapId" class="map-list-default">默认</span>
+          <button class="ghost" @click="setDefaultMap(m.id)" v-if="m.id !== pack.defaultMapId"
+            title="把这层设为打开地图时的默认层">设默认</button>
+          <button class="danger" @click="deleteMapLayer(m.id)" :disabled="m.id === pack.defaultMapId">删</button>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:12px">
+        <button class="primary" @click="newLayerName && (createMapLayer(newLayerName), newLayerName='')"
+          :disabled="!newLayerName">+ 新建独立层</button>
+        <input v-model="newLayerName" placeholder="新层名称" @keyup.enter="newLayerName && (createMapLayer(newLayerName), newLayerName='')" />
+      </div>
+
+      <div class="popover-actions">
+        <button @click="openMapManager = false">关闭</button>
+      </div>
+    </div>
+  </template>
+
+  <!-- ══════════════ 新建下层 popover ══════════════ -->
+  <template v-if="popover && popover.type === 'createSubLayer'">
+    <div class="popover-backdrop" @click="popover = null"></div>
+    <div class="popover" style="left:50%;top:50%;transform:translate(-50%,-50%)">
+      <h3>给这个跳转入口新建一层</h3>
+      <p>这一层会作为当前层的下一级，跳转入口自动绑定。</p>
+      <div class="field">
+        <label>下层地图的名称</label>
+        <input v-model="popover.newName" placeholder="如：中央剑径" autofocus
+          @keyup.enter="confirmCreateSubLayer" />
+      </div>
+      <div class="popover-actions">
+        <button @click="popover = null">取消</button>
+        <button class="primary" @click="confirmCreateSubLayer" :disabled="!popover.newName.trim()">
+          新建并进入
+        </button>
+      </div>
+    </div>
+  </template>
+
+  <!-- ══════════════ 导出后提示 ══════════════ -->
+  <template v-if="exportNotice">
+    <div class="popover-backdrop" @click="exportNotice = null"></div>
+    <div class="popover" style="left:50%;top:50%;transform:translate(-50%,-50%);max-width:460px">
+      <h3>✅ 导出完成</h3>
+      <p>已下载文件：<code>{{ exportNotice.filename }}</code></p>
+
+      <!-- 外链模式：最简单 -->
+      <div v-if="exportNotice.mode === 'external'" class="tip success">
+        你全部用的是图床链接，<b>只要把这个 json 文件发给别人就行</b>，不用带图片。
+      </div>
+
+      <!-- 文件夹模式：重点说层级 -->
+      <div v-else-if="exportNotice.mode === 'folder'" class="tip">
+        <b>json 和图片放在同一个文件夹里</b>，一起上传仓库，结构像这样：<br />
+        <pre style="background:#fff;padding:8px;border-radius:4px;margin:8px 0;font-size:11px;line-height:1.5">
+你的仓库/
+└── 你的地图包/            ← 文件夹名随便起（地图/maps/xxx 都行）
+    ├── mappack.json      ← 必须是json格式，和图片同级
+    ├── 图片1.png
+    └── 图片2.png</pre>
+        上传到 GitHub 后，在酒馆里填 <code>你的用户名/仓库名/你的地图包</code>（末段就是这个文件夹名），脚本会自动去里面找地图包json文件。
+        尽量避免同层级存在多个json文件。
+      </div>
+
+      <!-- 混合模式：防呆提示 -->
+      <div v-else class="tip warn">
+        地图包里 <b>有 {{ exportNotice.local }} 张本地图 + {{ exportNotice.external }} 张外链图</b>，注意：<br />
+        • 本地图片需要<b>和 json放在同一个文件夹里</b>一起上传仓库<br />
+        • 外链图片自动从网上加载<br />
+        如果想省事，建议把本地图全换成图床链接，只发 json 就行。
+      </div>
+
+      <div class="popover-actions">
+        <button class="primary" @click="exportNotice = null">知道了</button>
+      </div>
+    </div>
+  </template>
+</div>
+`,
+
+      data() {
+        return {
+          urlInput: '',
+          draggingPinId: null,
+          dragStart: null,
+          imageLoaded: false,
+          openMapManager: false,
+          newLayerName: '',
+        };
+      },
+
+      methods: {
+        /** 把任意用户输入归一化为 #rrggbb；无法识别则回退到默认色 */
+        onHexBlur(pin) {
+          const raw = (pin.color || '').trim();
+          let hex = raw.startsWith('#') ? raw : '#' + raw;
+          // #rgb → #rrggbb
+          if (/^#[0-9a-f]{3}$/i.test(hex)) {
+            hex = '#' + hex[1] + hex[1] + hex[2] + hex[2] + hex[3] + hex[3];
+          }
+          if (/^#[0-9a-f]{6}$/i.test(hex)) {
+            pin.color = hex.toLowerCase();
+          } else {
+            pin.color = '#6b8e7f';
+          }
+        },
+        /** color 控件只接受 #rrggbb；用户正在输入非法值时给它一个安全兜底 */
+        normalizeForPicker(value) {
+          const v = (value || '').trim();
+          if (/^#[0-9a-f]{6}$/i.test(v)) return v.toLowerCase();
+          if (/^#[0-9a-f]{3}$/i.test(v)) {
+            return ('#' + v[1] + v[1] + v[2] + v[2] + v[3] + v[3]).toLowerCase();
+          }
+          return '#6b8e7f';
+        },
+        onFolderPick(e) {
+          const files = Array.from(e.target.files || []);
+          const added = this.addImageAssets(files);
+          e.target.value = '';
+          if (added.length === 0 && files.length > 0) {
+            alert('你选的文件夹里似乎没有图片。只支持 png/jpg/gif/webp 等图片文件。\n\n💡 要选中的是包含图片文件夹本身，不是它的上一层。文件夹名随意。');
+          }
+        },
+        onFilesPick(e) {
+          const files = Array.from(e.target.files || []);
+          this.addImageAssets(files);
+          e.target.value = '';
+        },
+        onDrop(e) {
+          e.currentTarget.classList.remove('drag-over');
+          const items = e.dataTransfer.items;
+          const files = [];
+          // 支持拖入文件夹（递归）
+          const tasks = [];
+          if (items && items[0] && items[0].webkitGetAsEntry) {
+            for (const it of items) {
+              const entry = it.webkitGetAsEntry?.();
+              if (entry) tasks.push(this.readEntry(entry, files));
+            }
+            Promise.all(tasks).then(() => {
+              if (files.length === 0) alert('没找到图片文件');
+              else this.addImageAssets(files);
+            });
+          } else {
+            for (const f of e.dataTransfer.files) files.push(f);
+            this.addImageAssets(files);
+          }
+        },
+        readEntry(entry, collector) {
+          return new Promise(resolve => {
+            if (entry.isFile) {
+              entry.file(f => { collector.push(f); resolve(); }, () => resolve());
+            } else if (entry.isDirectory) {
+              const reader = entry.createReader();
+              reader.readEntries(entries => {
+                Promise.all(entries.map(e => this.readEntry(e, collector))).then(resolve);
+              });
+            } else resolve();
+          });
+        },
+        onAddUrl() {
+          if (!this.urlInput.trim()) return;
+          const ok = this.addExternalImage(this.urlInput);
+          if (!ok) {
+            alert('链接看起来不对。要求：以 http:// 或 https:// 开头，而且是图片的直链（结尾通常是 .png / .jpg 等）');
+            return;
+          }
+          this.urlInput = '';
+        },
+        onImageLoad() {
+          this.imageLoaded = true;
+          // 等 DOM 更新后自动 fit 到屏幕
+          this.$nextTick(() => this.fitView());
+        },
+        fitView() {
+          const wrap = this.$refs.canvasWrap;
+          const imgWrapEl = this.$refs.imgWrap;
+          if (!wrap || !imgWrapEl) return;
+          const imgEl = imgWrapEl.querySelector('img');
+          if (!imgEl || !imgEl.naturalWidth) return;
+          const wrapRect = wrap.getBoundingClientRect();
+          const iw = imgEl.naturalWidth;
+          const ih = imgEl.naturalHeight;
+          const s = Math.min(wrapRect.width / iw, wrapRect.height / ih) * 0.96;
+          this.view.scale = s;
+          this.view.tx = (wrapRect.width - iw * s) / 2;
+          this.view.ty = (wrapRect.height - ih * s) / 2;
+        },
+        zoomAt(clientX, clientY, factor) {
+          const wrap = this.$refs.canvasWrap;
+          if (!wrap) return;
+          const rect = wrap.getBoundingClientRect();
+          const mx = clientX - rect.left;
+          const my = clientY - rect.top;
+          const newScale = Math.max(0.08, Math.min(12, this.view.scale * factor));
+          const ratio = newScale / this.view.scale;
+          // 保持 (mx, my) 对应的内容点不变：先平移再缩放
+          this.view.tx = mx - (mx - this.view.tx) * ratio;
+          this.view.ty = my - (my - this.view.ty) * ratio;
+          this.view.scale = newScale;
+        },
+        zoomIn() {
+          const wrap = this.$refs.canvasWrap;
+          if (!wrap) return;
+          const r = wrap.getBoundingClientRect();
+          this.zoomAt(r.left + r.width / 2, r.top + r.height / 2, 1.2);
+        },
+        zoomOut() {
+          const wrap = this.$refs.canvasWrap;
+          if (!wrap) return;
+          const r = wrap.getBoundingClientRect();
+          this.zoomAt(r.left + r.width / 2, r.top + r.height / 2, 1 / 1.2);
+        },
+        resetView() {
+          this.fitView();
+        },
+        onCanvasWheel(e) {
+          if (!this.canvasImageUrl) return;
+          e.preventDefault();
+          const factor = e.deltaY < 0 ? 1.12 : 1 / 1.12;
+          this.zoomAt(e.clientX, e.clientY, factor);
+        },
+        maybeAddPin(clientX, clientY) {
+          const imgWrapEl = this.$refs.imgWrap;
+          if (!imgWrapEl) return;
+          const rect = imgWrapEl.getBoundingClientRect();
+          const x = ((clientX - rect.left) / rect.width) * 100;
+          const y = ((clientY - rect.top) / rect.height) * 100;
+          // 只有点击落在图片范围内才加点位
+          if (x < 0 || x > 100 || y < 0 || y > 100) return;
+          this.addPinAt(x, y);
+        },
+        onCanvasMouseDown(e) {
+          if (!this.canvasImageUrl) return;
+          if (e.button !== 0) return;
+          // 点在 pin / 缩放控件上，由各自的事件处理
+          if (e.target.classList?.contains('canvas-pin') ||
+              e.target.classList?.contains('canvas-pin-label') ||
+              e.target.closest?.('.canvas-zoom-controls')) return;
+          const start = { x: e.clientX, y: e.clientY, tx: this.view.tx, ty: this.view.ty };
+          let moved = false;
+          const onMove = ev => {
+            const dx = ev.clientX - start.x;
+            const dy = ev.clientY - start.y;
+            if (!moved && Math.abs(dx) + Math.abs(dy) > 4) {
+              moved = true;
+              this.isPanning = true;
+            }
+            if (moved) {
+              this.view.tx = start.tx + dx;
+              this.view.ty = start.ty + dy;
+            }
+          };
+          const onUp = ev => {
+            window.removeEventListener('mousemove', onMove);
+            window.removeEventListener('mouseup', onUp);
+            this.isPanning = false;
+            // 没发生明显移动 → 视为点击，加点位
+            if (!moved) this.maybeAddPin(ev.clientX, ev.clientY);
+          };
+          window.addEventListener('mousemove', onMove);
+          window.addEventListener('mouseup', onUp);
+        },
+        onCanvasTouchStart(e) {
+          if (!this.canvasImageUrl) return;
+          if (e.target.classList?.contains('canvas-pin') ||
+              e.target.classList?.contains('canvas-pin-label') ||
+              e.target.closest?.('.canvas-zoom-controls')) return;
+          if (e.touches.length === 1) {
+            const t = e.touches[0];
+            this._touch = {
+              mode: 'pan',
+              sx: t.clientX, sy: t.clientY,
+              tx: this.view.tx, ty: this.view.ty,
+              moved: false,
+            };
+          } else if (e.touches.length >= 2) {
+            const [a, b] = e.touches;
+            const dist = Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY);
+            this._touch = {
+              mode: 'pinch',
+              dist,
+              cx: (a.clientX + b.clientX) / 2,
+              cy: (a.clientY + b.clientY) / 2,
+            };
+          }
+        },
+        onCanvasTouchMove(e) {
+          if (!this._touch) return;
+          e.preventDefault();
+          if (this._touch.mode === 'pan' && e.touches.length === 1) {
+            const t = e.touches[0];
+            const dx = t.clientX - this._touch.sx;
+            const dy = t.clientY - this._touch.sy;
+            if (!this._touch.moved && Math.abs(dx) + Math.abs(dy) > 6) {
+              this._touch.moved = true;
+              this.isPanning = true;
+            }
+            if (this._touch.moved) {
+              this.view.tx = this._touch.tx + dx;
+              this.view.ty = this._touch.ty + dy;
+            }
+          } else if (this._touch.mode === 'pinch' && e.touches.length >= 2) {
+            const [a, b] = e.touches;
+            const dist = Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY);
+            if (this._touch.dist) {
+              this.zoomAt(this._touch.cx, this._touch.cy, dist / this._touch.dist);
+            }
+            this._touch.dist = dist;
+            this._touch.cx = (a.clientX + b.clientX) / 2;
+            this._touch.cy = (a.clientY + b.clientY) / 2;
+          }
+        },
+        onCanvasTouchEnd(e) {
+          if (!this._touch) { this.isPanning = false; return; }
+          if (this._touch.mode === 'pan' && !this._touch.moved) {
+            const t = e.changedTouches && e.changedTouches[0];
+            if (t) this.maybeAddPin(t.clientX, t.clientY);
+          }
+          this._touch = null;
+          this.isPanning = false;
+        },
+        onPinMouseDown(e, pin) {
+          this.selectedPinId = pin.id;
+          this.draggingPinId = pin.id;
+          const imgWrapEl = this.$refs.imgWrap;
+          if (!imgWrapEl) return;
+
+          const onMove = ev => {
+            const rect = imgWrapEl.getBoundingClientRect();
+            const x = Math.max(0, Math.min(100, ((ev.clientX - rect.left) / rect.width) * 100));
+            const y = Math.max(0, Math.min(100, ((ev.clientY - rect.top) / rect.height) * 100));
+            pin.x = Math.round(x * 10) / 10;
+            pin.y = Math.round(y * 10) / 10;
+          };
+          const onUp = () => {
+            this.draggingPinId = null;
+            window.removeEventListener('mousemove', onMove);
+            window.removeEventListener('mouseup', onUp);
+          };
+          window.addEventListener('mousemove', onMove);
+          window.addEventListener('mouseup', onUp);
+        },
+        onPinTouchStart(e, pin) {
+          e.stopPropagation();
+          this.selectedPinId = pin.id;
+          this.draggingPinId = pin.id;
+          const imgWrapEl = this.$refs.imgWrap;
+          if (!imgWrapEl) return;
+          const onMove = ev => {
+            if (ev.touches.length !== 1) return;
+            ev.preventDefault();
+            const rect = imgWrapEl.getBoundingClientRect();
+            const t = ev.touches[0];
+            const x = Math.max(0, Math.min(100, ((t.clientX - rect.left) / rect.width) * 100));
+            const y = Math.max(0, Math.min(100, ((t.clientY - rect.top) / rect.height) * 100));
+            pin.x = Math.round(x * 10) / 10;
+            pin.y = Math.round(y * 10) / 10;
+          };
+          const onEnd = () => {
+            this.draggingPinId = null;
+            window.removeEventListener('touchmove', onMove);
+            window.removeEventListener('touchend', onEnd);
+            window.removeEventListener('touchcancel', onEnd);
+          };
+          window.addEventListener('touchmove', onMove, { passive: false });
+          window.addEventListener('touchend', onEnd);
+          window.addEventListener('touchcancel', onEnd);
+        },
+      },
+    };
+
+    createApp(App).mount('#app');
+  </script>
+</body>
+
+</html>
